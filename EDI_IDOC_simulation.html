@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SAP EDI to IDOC Demonstration</title>
+    <style>
+        /* Basic Styles */
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f2f2f2;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+        }
+        .half {
+            width: 50%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #0a6ed1;
+            position: relative;
+        }
+        h2 img {
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        .client {
+            background-color: #ffffff;
+        }
+        .supplier {
+            background-color: #ffffff;
+        }
+        /* Form and Message Styles */
+        .form-section, .message-box, .action-section, .info-box {
+            background-color: #e8edf4;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: 1px solid #d0d7e5;
+            position: relative;
+        }
+        .form-section h3, .message-box h3, .action-section h3, .info-box h3 {
+            margin-top: 0;
+            color: #0a6ed1;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .form-row label {
+            width: 120px;
+            margin-right: 10px;
+            text-align: right;
+            color: #333;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #a1aab3;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #0a6ed1;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0854a0;
+        }
+        pre {
+            background-color: #f9f9f9;
+            padding: 10px;
+            overflow-x: auto;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        /* Styling for step number circles */
+        .step-number {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #0a6ed1;
+            color: #fff;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 50px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+        .description {
+            background-color: #fff;
+            color: #0a6ed1;
+            padding: 10px;
+            border: 1px solid #0a6ed1;
+            border-radius: 5px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Client Side -->
+    <div class="half client">
+        <h2><img src="https://img.icons8.com/ios-filled/50/000000/businessman.png" width="24"/> Client</h2>
+
+        <!-- 1. Purchase Order Creation Form (Client Side) -->
+        <div class="form-section">
+            <div id="description-1" class="description"></div>
+            <div class="step-number">Step 1</div>
+            <h3>Create Purchase Order (PO)</h3>
+            <form id="po-form">
+                <div class="form-row">
+                    <label for="po-number">PO Number:</label>
+                    <input type="text" id="po-number" required>
+                </div>
+                <div class="form-row">
+                    <label for="client-name">Client Name:</label>
+                    <input type="text" id="client-name" required>
+                </div>
+                <div class="form-row">
+                    <label for="vendor-name">Vendor Name:</label>
+                    <input type="text" id="vendor-name" required>
+                </div>
+                <div class="form-row">
+                    <label for="item">Item:</label>
+                    <input type="text" id="item" required>
+                </div>
+                <div class="form-row">
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" id="quantity" required>
+                </div>
+                <div class="form-row">
+                    <label for="unit-price">Unit Price:</label>
+                    <input type="number" id="unit-price" step="0.01" required>
+                </div>
+                <div class="form-row">
+                    <label for="currency">Currency:</label>
+                    <select id="currency" required>
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="order-date">Order Date:</label>
+                    <input type="date" id="order-date" required>
+                </div>
+                <button type="submit">Create PO in EDI</button>
+            </form>
+        </div>
+
+        <!-- 2. EDI Message (Client Side) -->
+        <div class="message-box hidden" id="client-edi-box">
+            <div id="description-2" class="description hidden"></div>
+            <div class="step-number">Step 2</div>
+            <h3>EDI Message</h3>
+            <pre id="client-edi-message"></pre>
+            <button id="send-po-button">Send PO to Supplier</button>
+        </div>
+
+        <!-- 8. Received Invoice IDOC (Client Side) -->
+        <div class="message-box hidden" id="client-invoice-box">
+            <div id="description-8" class="description hidden"></div>
+            <div class="step-number">Step 8</div>
+            <h3>Received Invoice IDOC (INVOICE02)</h3>
+            <pre id="client-invoice-message"></pre>
+            <button id="translate-invoice-button">Translate IDOC to EDI</button>
+        </div>
+
+        <!-- 9. Translated Invoice EDI (Client Side) -->
+        <div class="message-box hidden" id="client-edi-invoice-box">
+            <div id="description-9" class="description hidden"></div>
+            <div class="step-number">Step 9</div>
+            <h3>Translated Invoice EDI</h3>
+            <pre id="client-edi-invoice-message"></pre>
+        </div>
+
+        <!-- Arrow indicating sending PO to Supplier -->
+        <div class="arrow arrow-right hidden" id="arrow-to-supplier">
+            <div class="step-number" id="step-number-3-client">Step 3</div> <!-- Step 3 on client side hidden -->
+        </div>
+    </div>
+
+    <!-- Supplier Side -->
+    <div class="half supplier">
+        <h2><img src="https://img.icons8.com/ios-filled/50/000000/factory.png" width="24"/> Supplier</h2>
+
+        <!-- 3. Received EDI Message (Supplier Side) -->
+        <div class="message-box hidden" id="supplier-edi-box">
+            <div id="description-3" class="description hidden"></div>
+            <div class="step-number" id="step-number-3-supplier">Step 3</div> <!-- Correct Step 3 only on Supplier side -->
+            <h3>Received EDI Message</h3>
+            <pre id="supplier-edi-message"></pre>
+            <button id="translate-po-button">Translate EDI to IDOC (Orders05)</button>
+        </div>
+
+        <!-- 4. IDOC Message Display (Supplier Side) -->
+        <div class="message-box hidden" id="supplier-idoc-box">
+            <div id="description-4" class="description hidden"></div>
+            <div class="step-number">Step 4</div>
+            <h3>IDOC Message (Orders05)</h3>
+            <pre id="supplier-idoc-message"></pre>
+            <button id="send-to-sap-button">Send IDOC to SAP (SD Module)</button>
+        </div>
+
+        <!-- 5. Purchase Order Registered (Supplier Side) -->
+        <div class="info-box hidden" id="po-registered-box">
+            <div id="description-5" class="description hidden"></div>
+            <div class="step-number">Step 5</div>
+            <h3>Purchase Order Registered</h3>
+        </div>
+
+        <!-- 6. Create Invoice in IDOC (Supplier Side) -->
+        <div class="action-section hidden" id="create-invoice-section">
+            <div id="description-6" class="description"></div> <!-- Show description immediately -->
+            <div class="step-number">Step 6</div>
+            <h3>Create Invoice in IDOC (INVOICE02)</h3>
+            <button id="create-invoice-button">Create Invoice</button>
+        </div>
+
+        <!-- 7. Invoice IDOC Display (Supplier Side) -->
+        <div class="message-box hidden" id="supplier-invoice-box">
+            <div id="description-7" class="description"></div> <!-- Show description with the form -->
+            <div class="step-number">Step 7</div>
+            <h3>Invoice IDOC (INVOICE02)</h3>
+            <pre id="supplier-invoice-message"></pre>
+            <button id="send-invoice-button">Send Invoice to Client</button>
+        </div>
+
+        <!-- Arrow indicating sending Invoice to Client -->
+        <div class="arrow arrow-left hidden" id="arrow-to-client">
+            <div class="step-number" id="step-number-7">Step 7</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const poForm = document.getElementById('po-form');
+    const clientEdiBox = document.getElementById('client-edi-box');
+    const clientEdiMessage = document.getElementById('client-edi-message');
+    const sendPoButton = document.getElementById('send-po-button');
+    const arrowToSupplier = document.getElementById('arrow-to-supplier');
+    const clientInvoiceBox = document.getElementById('client-invoice-box');
+    const clientInvoiceMessage = document.getElementById('client-invoice-message');
+    const translateInvoiceButton = document.getElementById('translate-invoice-button');
+    const clientEdiInvoiceBox = document.getElementById('client-edi-invoice-box');
+    const clientEdiInvoiceMessage = document.getElementById('client-edi-invoice-message');
+
+    const supplierEdiBox = document.getElementById('supplier-edi-box');
+    const supplierEdiMessage = document.getElementById('supplier-edi-message');
+    const translatePoButton = document.getElementById('translate-po-button');
+    const supplierIdocBox = document.getElementById('supplier-idoc-box');
+    const supplierIdocMessage = document.getElementById('supplier-idoc-message');
+    const sendToSapButton = document.getElementById('send-to-sap-button');
+    const poRegisteredBox = document.getElementById('po-registered-box');
+    const createInvoiceSection = document.getElementById('create-invoice-section');
+    const createInvoiceButton = document.getElementById('create-invoice-button');
+    const supplierInvoiceBox = document.getElementById('supplier-invoice-box');
+    const supplierInvoiceMessage = document.getElementById('supplier-invoice-message');
+    const sendInvoiceButton = document.getElementById('send-invoice-button');
+    const arrowToClient = document.getElementById('arrow-to-client');
+
+    const descriptions = {
+        1: 'The client can create a Purchase Order (PO) in EDI format.',
+        2: 'The PO details are converted into an EDI message for transmission to the supplier.',
+        3: 'The supplier receives the Purchase Order (PO) in EDI format from the client.',
+        4: 'The supplier translates the EDI message into an IDOC (Orders05) format to be processed by SAP.',
+        5: 'The IDOC is sent to SAP, and the Purchase Order is now registered in the SAP SD Module.',
+        6: 'The supplier creates an Invoice in IDOC (INVOICE02) format based on the registered Purchase Order.',
+        7: 'The supplier sends the Invoice IDOC to the client.',
+        8: 'The client receives the Invoice in IDOC (INVOICE02) format from the supplier.',
+        9: 'The client translates the received Invoice IDOC into EDI format for further processing.'
+    };
+
+    // Function to show the description
+    function showDescription(step) {
+        const descriptionEl = document.getElementById(`description-${step}`);
+        descriptionEl.textContent = descriptions[step];
+        descriptionEl.classList.remove('hidden');
+    }
+
+    // Function to hide previous step numbers and arrows
+    function hidePreviousStep(step) {
+        // Hide previous step number if it exists
+        const previousStepNumber = document.querySelector(`.step-number.step-${step - 1}`);
+        if (previousStepNumber) {
+            previousStepNumber.classList.add('hidden');
+        }
+
+        // Hide relevant arrows if applicable
+        if (step > 3) {
+            const arrowToSupplier = document.getElementById('arrow-to-supplier');
+            const arrowToClient = document.getElementById('arrow-to-client');
+            if (arrowToSupplier) {
+                arrowToSupplier.classList.add('hidden');
+            }
+            if (arrowToClient) {
+                arrowToClient.classList.add('hidden');
+            }
+        }
+    }
+
+    // On page load: Show description for Step 1
+    window.onload = function() {
+        showDescription(1); // Show "The client can create a Purchase Order (PO) in EDI format." on page load
+    };
+
+    // Step 1: Client creates PO in EDI format
+    poForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const poNumber = document.getElementById('po-number').value;
+        const clientName = document.getElementById('client-name').value;
+        const vendorName = document.getElementById('vendor-name').value;
+        const item = document.getElementById('item').value;
+        const quantity = document.getElementById('quantity').value;
+        const unitPrice = document.getElementById('unit-price').value;
+        const currency = document.getElementById('currency').value;
+        const orderDate = document.getElementById('order-date').value;
+
+        poEdiMessage = {
+            'UNH': { 'Message Reference Number': '1', 'Message Type': 'ORDERS' },
+            'BGM': { 'Document Number': poNumber, 'Message Function': 'Original' },
+            'DTM': { 'Date': orderDate },
+            'NAD+BY': { 'Buyer': clientName },
+            'NAD+SU': { 'Supplier': vendorName },
+            'CUX': { 'Currency': currency },
+            'LIN': {
+                'Line Item': '1',
+                'Item': item,
+                'Quantity': quantity,
+                'Unit Price': unitPrice
+            }
+        };
+
+        clientEdiMessage.textContent = JSON.stringify(poEdiMessage, null, 2);
+        clientEdiBox.classList.remove('hidden');
+        showDescription(2);
+    });
+
+    // Step 2-3: Client sends PO to Supplier
+    sendPoButton.addEventListener('click', function() {
+        // Hide Step 3 circle on client side
+        document.getElementById('step-number-3-client').classList.add('hidden');
+        
+        // Show arrow and Step 3 on supplier side
+        arrowToSupplier.classList.remove('hidden');
+        document.getElementById('step-number-3-supplier').classList.remove('hidden');
+        supplierEdiMessage.textContent = JSON.stringify(poEdiMessage, null, 2);
+        supplierEdiBox.classList.remove('hidden');
+        showDescription(3);
+        hidePreviousStep(3);
+    });
+
+    // Step 4: Supplier translates EDI to IDOC (Orders05)
+    translatePoButton.addEventListener('click', function() {
+        hidePreviousStep(4);
+        poIdocMessage = {
+            'EDI_DC40': {
+                'DOCNUM': '0000001',
+                'IDOCTYP': 'ORDERS05',
+                'MESTYP': 'ORDERS'
+            },
+            'E1EDK01': {
+                'BELNR': poEdiMessage.BGM['Document Number'],
+                'VKORG': '1000',
+                'CURCY': poEdiMessage.CUX['Currency'],
+                'AUDAT': poEdiMessage.DTM['Date']
+            },
+            'E1EDP01': {
+                'POSEX': '000010',
+                'MENGE': poEdiMessage.LIN['Quantity'],
+                'MATNR': poEdiMessage.LIN['Item'],
+                'NETPR': poEdiMessage.LIN['Unit Price']
+            }
+        };
+
+        supplierIdocMessage.textContent = JSON.stringify(poIdocMessage, null, 2);
+        supplierIdocBox.classList.remove('hidden');
+        showDescription(4);
+    });
+
+    // Step 5-6: Supplier sends IDOC to SAP
+    sendToSapButton.addEventListener('click', function() {
+        poRegisteredBox.classList.remove('hidden');
+        createInvoiceSection.classList.remove('hidden');
+        showDescription(5);
+        showDescription(6); // Show Step 6 immediately when the form appears
+        hidePreviousStep(6);
+    });
+
+    // Step 7: Supplier creates Invoice IDOC (INVOICE02)
+    createInvoiceButton.addEventListener('click', function() {
+        hidePreviousStep(7);
+        invoiceIdocMessage = {
+            'EDI_DC40': {
+                'DOCNUM': '0000002',
+                'IDOCTYP': 'INVOIC02',
+                'MESTYP': 'INVOIC'
+            },
+            'E1EDK01': {
+                'BELNR': 'INV-0001',
+                'VKORG': '1000',
+                'CURCY': poIdocMessage.E1EDK01['CURCY'],
+                'FKDAT': poIdocMessage.E1EDK01['AUDAT']
+            },
+            'E1EDP01': {
+                'POSEX': '000010',
+                'MENGE': poIdocMessage.E1EDP01['MENGE'],
+                'MATNR': poIdocMessage.E1EDP01['MATNR'],
+                'NETWR': (poIdocMessage.E1EDP01['MENGE'] * poIdocMessage.E1EDP01['NETPR']).toFixed(2)
+            }
+        };
+
+        supplierInvoiceMessage.textContent = JSON.stringify(invoiceIdocMessage, null, 2);
+        supplierInvoiceBox.classList.remove('hidden');
+        showDescription(7); // Show Step 7 when the form appears
+    });
+
+    // Step 8: Supplier sends Invoice to Client
+    sendInvoiceButton.addEventListener('click', function() {
+        arrowToClient.classList.remove('hidden');
+        clientInvoiceMessage.textContent = JSON.stringify(invoiceIdocMessage, null, 2);
+        clientInvoiceBox.classList.remove('hidden');
+        showDescription(8);
+        hidePreviousStep(8);
+    });
+
+    // Step 9: Client translates IDOC to EDI
+    translateInvoiceButton.addEventListener('click', function() {
+        invoiceEdiMessage = {
+            'UNH': { 'Message Reference Number': '2', 'Message Type': 'INVOIC' },
+            'BGM': { 'Document Number': invoiceIdocMessage.E1EDK01['BELNR'], 'Message Function': 'Original' },
+            'DTM': { 'Date': invoiceIdocMessage.E1EDK01['FKDAT'] },
+            'NAD+BY': { 'Buyer': document.getElementById('client-name').value },
+            'NAD+SU': { 'Supplier': document.getElementById('vendor-name').value },
+            'CUX': { 'Currency': invoiceIdocMessage.E1EDK01['CURCY'] },
+            'LIN': {
+                'Line Item': '1',
+                'Item': invoiceIdocMessage.E1EDP01['MATNR'],
+                'Quantity': invoiceIdocMessage.E1EDP01['MENGE'],
+                'Net Value': invoiceIdocMessage.E1EDP01['NETWR']
+            }
+        };
+
+        clientEdiInvoiceMessage.textContent = JSON.stringify(invoiceEdiMessage, null, 2);
+        clientEdiInvoiceBox.classList.remove('hidden');
+        showDescription(9);
+        hidePreviousStep(9);
+    });
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
